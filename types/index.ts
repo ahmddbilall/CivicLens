@@ -21,6 +21,7 @@ export interface TimelineEvent {
 
 export interface Report {
   id: string; // CL-XXXX format
+  userId: string;
   photoUrl: string;
   faultType: FaultType;
   severity: FaultSeverity;
@@ -56,7 +57,12 @@ export interface User {
   email: string;
   street: string;
   area: string;
-  zip: string;
-  city: string;
+  zip?: string;
+  city?: string;
   avatarUrl?: string;
+  preferences?: {
+    pushNotifications: boolean;
+    emailAlerts: boolean;
+    language: string;
+  };
 }

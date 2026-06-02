@@ -11,9 +11,10 @@ export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const { cases } = useCasesStore();
 
-  const totalReports = cases.length;
-  const resolvedCases = cases.filter(c => c.status === "resolved").length;
-  const pendingCases = cases.filter(c => c.status === "pending").length;
+  const myCases = cases.filter(c => c.userId === user?.id);
+  const totalReports = myCases.length;
+  const resolvedCases = myCases.filter(c => c.status === "resolved").length;
+  const pendingCases = myCases.filter(c => c.status === "pending").length;
 
   const handleLogout = () => {
     logout();

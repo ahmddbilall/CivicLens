@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronDown, ChevronUp, Check, Mail, MessageSquare } from "lucide-react";
 import { useCasesStore } from "@/store/useCasesStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CaseTimeline } from "@/components/features/cases/CaseTimeline";
 import { Button } from "@/components/ui/Button";
@@ -14,9 +15,11 @@ import { format } from "date-fns";
 export default function CaseDetailScreen() {
   const { id } = useParams();
   const router = useRouter();
-  const { cases, resolveCase } = useCasesStore();
+  const { cases, resolveCase, deleteCase } = useCasesStore();
+  const { user } = useAuthStore();
   
   const report = cases.find(c => c.id === id);
+  const isOwner = report?.userId === user?.id;
   
   const [authorityOpen, setAuthorityOpen] = useState(false);
   const [resolveSheetOpen, setResolveSheetOpen] = useState(false);
@@ -31,6 +34,13 @@ export default function CaseDetailScreen() {
   const handleResolve = () => {
     resolveCase(report.id);
     setResolveSheetOpen(false);
+  };
+
+  const handleDelete = async () => {
+    if (window.confirm("Are you sure you want to delete this case? This cannot be undone.")) {
+      await deleteCase(report.id);
+      router.push("/cases");
+    }
   };
 
   return (
@@ -81,11 +91,11 @@ export default function CaseDetailScreen() {
             <div className="mt-5 pt-5 border-t border-[var(--color-border)] grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[11px] md:text-[12px] text-[var(--color-text-muted)] uppercase tracking-wider">Reported On</p>
-                <p className="text-[13px] md:text-[14px] text-white mt-1 font-medium">{format(new Date(report.createdAt), "MMM d, yyyy")}</p>
+                <p className="text-[13px] md:text-[14px] text-white mt-1 font-medium">{report.createdAt ? format(new Date(report.createdAt), "MMM d, yyyy") : "Unknown"}</p>
               </div>
               <div>
                 <p className="text-[11px] md:text-[12px] text-[var(--color-text-muted)] uppercase tracking-wider">Auto Follow-up</p>
-                <p className="text-[13px] md:text-[14px] text-white mt-1 font-medium">{format(new Date(report.followUpAt), "MMM d, yyyy")}</p>
+                <p className="text-[13px] md:text-[14px] text-white mt-1 font-medium">{report.followUpAt ? format(new Date(report.followUpAt), "MMM d, yyyy") : "Pending"}</p>
               </div>
             </div>
           </div>
@@ -126,19 +136,26 @@ export default function CaseDetailScreen() {
 
       {/* Desktop Inline CTA */}
       <div className="hidden lg:block mt-2">
-        {report.status !== "resolved" ? (
-          <div className="flex flex-col gap-3">
-            <Button size="lg" className="w-full shadow-[var(--shadow-button)] cursor-pointer" onClick={() => setResolveSheetOpen(true)}>
-              Mark as Resolved ✓
+        {isOwner && (
+          <>
+            {report.status !== "resolved" ? (
+              <div className="flex flex-col gap-3">
+                <Button size="lg" className="w-full shadow-[var(--shadow-button)] cursor-pointer" onClick={() => setResolveSheetOpen(true)}>
+                  Mark as Resolved ✓
+                </Button>
+                <Button size="lg" variant="secondary" className="w-full cursor-pointer" onClick={() => setFollowUpOpen(true)}>
+                  Send Follow-up
+                </Button>
+              </div>
+            ) : (
+              <div className="bg-[var(--color-success-muted)] border border-[var(--color-success)] border-opacity-30 rounded-xl px-4 py-4 flex justify-center items-center gap-2 shadow-sm">
+                <span className="text-[var(--color-success)] font-medium">✓ Resolved — Thank you for reporting!</span>
+              </div>
+            )}
+            <Button size="lg" variant="secondary" className="w-full mt-3 border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors cursor-pointer" onClick={handleDelete}>
+              Delete Case
             </Button>
-            <Button size="lg" variant="secondary" className="w-full cursor-pointer" onClick={() => setFollowUpOpen(true)}>
-              Send Follow-up
-            </Button>
-          </div>
-        ) : (
-          <div className="bg-[var(--color-success-muted)] border border-[var(--color-success)] border-opacity-30 rounded-xl px-4 py-4 flex justify-center items-center gap-2 shadow-sm">
-            <span className="text-[var(--color-success)] font-medium">✓ Resolved — Thank you for reporting!</span>
-          </div>
+          </>
         )}
       </div>
     </div>
@@ -146,18 +163,29 @@ export default function CaseDetailScreen() {
 
   {/* Fixed Bottom CTA for Mobile */}
   <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--color-bg-base)]/95 backdrop-blur border-t border-[var(--color-border)] px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-40">
-    {report.status !== "resolved" ? (
+    {isOwner ? (
       <>
-        <Button size="lg" className="w-full shadow-[var(--shadow-button)] mb-2 cursor-pointer" onClick={() => setResolveSheetOpen(true)}>
-          Mark as Resolved ✓
-        </Button>
-        <Button size="lg" variant="secondary" className="w-full cursor-pointer" onClick={() => setFollowUpOpen(true)}>
-          Send Follow-up
+        {report.status !== "resolved" ? (
+          <>
+            <Button size="lg" className="w-full shadow-[var(--shadow-button)] mb-2 cursor-pointer" onClick={() => setResolveSheetOpen(true)}>
+              Mark as Resolved ✓
+            </Button>
+            <Button size="lg" variant="secondary" className="w-full cursor-pointer" onClick={() => setFollowUpOpen(true)}>
+              Send Follow-up
+            </Button>
+          </>
+        ) : (
+          <div className="bg-[var(--color-success-muted)] border border-[var(--color-success)] border-opacity-30 rounded-xl px-4 py-3 flex justify-center items-center gap-2">
+            <span className="text-[var(--color-success)] font-medium">✓ Resolved — Thank you for reporting!</span>
+          </div>
+        )}
+        <Button size="lg" variant="secondary" className="w-full mt-2 border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-[var(--color-danger)] hover:text-white transition-colors cursor-pointer" onClick={handleDelete}>
+          Delete Case
         </Button>
       </>
     ) : (
-      <div className="bg-[var(--color-success-muted)] border border-[var(--color-success)] border-opacity-30 rounded-xl px-4 py-3 flex justify-center items-center gap-2">
-        <span className="text-[var(--color-success)] font-medium">✓ Resolved — Thank you for reporting!</span>
+      <div className="bg-[var(--color-bg-elevated)] rounded-xl px-4 py-3 flex justify-center items-center">
+        <span className="text-[var(--color-text-secondary)] font-medium text-sm">Case reported by a community member</span>
       </div>
     )}
   </div>

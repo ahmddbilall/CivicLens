@@ -10,6 +10,8 @@ import * as z from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/store/useAuthStore";
+import { signIn } from "next-auth/react";
+import toast from "react-hot-toast";
 
 const schema = z.object({
   fullName: z
@@ -26,6 +28,10 @@ const schema = z.object({
     .trim()
     .email("Enter a valid email address")
     .max(120, "Email is too long"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(100, "Password is too long"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -34,6 +40,7 @@ type PolicyModal = "terms" | "privacy" | null;
 export default function SignupScreen() {
   const router = useRouter();
   const [activeModal, setActiveModal] = useState<PolicyModal>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const { startAuth } = useAuthStore();
 
   const {
@@ -45,19 +52,31 @@ export default function SignupScreen() {
     mode: "onChange",
   });
 
-  const onSubmit = (data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     startAuth({ email: data.email, name: data.fullName, intent: "signup" });
-    // OTP is sent to email in the real integration.
-    router.push("/verify");
+    
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        email: data.email,
+        password: data.password,
+        name: data.fullName,
+        isSignup: "true",
+      });
+
+      if (res?.error) {
+        toast.error(res.error);
+        return;
+      }
+      
+      router.push("/home");
+    } catch (error) {
+      toast.error("An error occurred during signup");
+    }
   };
 
   const handleGoogleSignIn = () => {
-    startAuth({
-      email: "google.user@civiclens.app",
-      name: "Google User",
-      intent: "signup",
-    });
-    router.push("/verify");
+    signIn("google", { callbackUrl: "/home" });
   };
 
   return (
@@ -114,6 +133,21 @@ export default function SignupScreen() {
           )}
         </div>
 
+        <div>
+          <Input
+            label="Password"
+            type={showPassword ? "text" : "password"}
+            autoComplete="new-password"
+            className={errors.password ? "border-danger" : ""}
+            {...register("password")}
+          />
+          {errors.password && (
+            <p className="text-[12px] text-danger mt-1 px-1">
+              {errors.password.message}
+            </p>
+          )}
+        </div>
+
         <p className="text-[12px] text-text-muted text-center mt-2">
           By signing up, you agree to our{" "}
           <button
@@ -132,10 +166,6 @@ export default function SignupScreen() {
             Privacy Policy
           </button>
           .
-        </p>
-
-        <p className="text-[12px] text-text-muted text-center -mt-1">
-          We&apos;ll send a 6-digit verification code to your email.
         </p>
 
         <div className="mt-auto pt-6 flex flex-col gap-6">

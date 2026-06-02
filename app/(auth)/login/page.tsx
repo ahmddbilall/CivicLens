@@ -10,6 +10,8 @@ import * as z from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useAuthStore } from "@/store/useAuthStore";
+import { signIn } from "next-auth/react";
+import toast from "react-hot-toast";
 
 const schema = z.object({
   email: z
@@ -38,12 +40,30 @@ export default function LoginScreen() {
     resolver: zodResolver(schema),
     mode: "onChange",
   });
-  const handleGoogleSignIn = () => {};
-  const onSubmit = (data: FormData) => {
+  const handleGoogleSignIn = () => {
+    signIn("google", { callbackUrl: "/home" });
+  };
+  
+  const onSubmit = async (data: FormData) => {
     startAuth({ email: data.email, intent: "login" });
-    verifyOtp("password-login");
-    clearAuthIntent();
-    router.push("/home");
+    
+    try {
+      const res = await signIn("credentials", {
+        redirect: false,
+        email: data.email,
+        password: data.password,
+      });
+
+      if (res?.error) {
+        toast.error("Invalid email or password");
+        return;
+      }
+      
+      clearAuthIntent();
+      router.push("/home");
+    } catch (error) {
+      toast.error("An error occurred during sign in");
+    }
   };
 
   return (

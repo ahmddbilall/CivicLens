@@ -3,44 +3,24 @@
 import { useState } from "react";
 import { Bell, Check, AlertTriangle, Hash } from "lucide-react";
 
+import { useCasesStore } from "@/store/useCasesStore";
+
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState([
-    {
-      id: "1",
-      type: "follow_up",
-      title: "Follow-up Sent",
-      body: "An automatic follow-up was sent to LDA for Case #CL-2847.",
-      time: "2 hours ago",
-      group: "Today",
-    },
-    {
-      id: "2",
-      type: "resolved",
-      title: "Case Resolved",
-      body: "Case #CL-1943 in DHA Phase 5 has been marked as resolved.",
-      time: "Yesterday, 14:30",
-      group: "Yesterday",
-      read: true,
-    },
-    {
-      id: "3",
-      type: "escalated",
-      title: "Escalated to Director",
-      body: "Case #CL-0921 remains unresolved. An escalation email was sent.",
-      time: "May 20, 09:15",
-      group: "Earlier",
-      read: true,
-    },
-    {
-      id: "4",
-      type: "new_case",
-      title: "New Report Filed",
-      body: "Your report for Road Damage has been logged as Case #CL-2847.",
-      time: "May 18, 11:20",
-      group: "Earlier",
-      read: true,
-    },
-  ]);
+  const { cases } = useCasesStore();
+  const [readState, setReadState] = useState<Record<string, boolean>>({});
+  
+  // Derive notifications from cases timeline
+  const notifications = cases.flatMap(c => 
+    c.timeline?.map(t => ({
+      id: `${c.id}-${t.id}`,
+      type: t.type === "filed" ? "new_case" : t.type === "email_sent" ? "follow_up" : "resolved",
+      title: t.label,
+      body: `Case ${c.id}: ${c.description || "Report updated."}`,
+      time: new Date(t.date).toLocaleDateString() + " " + new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+      group: "Recent",
+      read: readState[`${c.id}-${t.id}`] || false,
+    })) || []
+  ).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -76,9 +56,11 @@ export default function NotificationsScreen() {
   const groups = ["Today", "Yesterday", "Earlier"];
 
   const handleMarkAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((notification) => ({ ...notification, read: true })),
-    );
+    const newReadState = { ...readState };
+    notifications.forEach(n => {
+      newReadState[n.id] = true;
+    });
+    setReadState(newReadState);
   };
 
   return (
@@ -98,57 +80,62 @@ export default function NotificationsScreen() {
       </div>
 
       <div className="bg-[var(--color-bg-surface)] rounded-none md:rounded-2xl md:border md:border-[var(--color-border)] overflow-hidden shadow-sm">
-        {groups.map((group, idx) => {
-          const groupItems = notifications.filter((n) => n.group === group);
-          if (groupItems.length === 0) return null;
+        {notifications.length === 0 ? (
+          <div className="py-12 flex flex-col items-center justify-center text-center">
+            <Bell className="w-12 h-12 text-[var(--color-text-muted)] mb-4 opacity-50" />
+            <h3 className="text-lg font-medium text-white mb-1">No notifications yet</h3>
+            <p className="text-[var(--color-text-secondary)] text-sm max-w-xs">When there are updates on your reports, they will appear here.</p>
+          </div>
+        ) : (
+          ["Recent"].map((group, idx) => {
+            const groupItems = notifications.filter((n) => n.group === group);
+            if (groupItems.length === 0) return null;
 
-          return (
-            <div
-              key={group}
-              className={
-                idx !== 0 ? "border-t border-[var(--color-border)]" : ""
-              }
-            >
-              <h3 className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider px-4 md:px-6 mb-2 mt-4 font-bold">
-                {group}
-              </h3>
-              <div className="flex flex-col">
-                {groupItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`px-4 md:px-6 py-4 flex gap-4 items-start transition-colors hover:bg-[var(--color-bg-elevated)] cursor-pointer ${
-                      !item.read
-                        ? "bg-[var(--color-bg-elevated)]/50 border-l-2 border-l-[var(--color-accent)] md:pl-[22px] pl-[14px]"
-                        : "border-b border-[var(--color-border)] last:border-0"
-                    }`}
-                    onClick={() =>
-                      setNotifications((current) =>
-                        current.map((notification) =>
-                          notification.id === item.id
-                            ? { ...notification, read: true }
-                            : notification,
-                        ),
-                      )
-                    }
-                  >
-                    {getIcon(item.type)}
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <p className="font-body font-medium text-[14px] md:text-[15px] text-white leading-tight">
-                        {item.title}
-                      </p>
-                      <p className="text-[13px] md:text-[14px] text-[var(--color-text-secondary)] mt-1 leading-relaxed">
-                        {item.body}
-                      </p>
-                      <p className="text-[11px] md:text-[12px] text-[var(--color-text-muted)] mt-1.5">
-                        {item.time}
-                      </p>
+            return (
+              <div
+                key={group}
+                className={
+                  idx !== 0 ? "border-t border-[var(--color-border)]" : ""
+                }
+              >
+                <h3 className="text-xs text-[var(--color-text-muted)] uppercase tracking-wider px-4 md:px-6 mb-2 mt-4 font-bold">
+                  {group}
+                </h3>
+                <div className="flex flex-col">
+                  {groupItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`px-4 md:px-6 py-4 flex gap-4 items-start transition-colors hover:bg-[var(--color-bg-elevated)] cursor-pointer ${
+                        !item.read
+                          ? "bg-[var(--color-bg-elevated)]/50 border-l-2 border-l-[var(--color-accent)] md:pl-[22px] pl-[14px]"
+                          : "border-b border-[var(--color-border)] last:border-0"
+                      }`}
+                      onClick={() =>
+                        setReadState((current) => ({
+                          ...current,
+                          [item.id]: true
+                        }))
+                      }
+                    >
+                      {getIcon(item.type)}
+                      <div className="flex-1 min-w-0 pt-0.5">
+                        <p className="font-body font-medium text-[14px] md:text-[15px] text-white leading-tight">
+                          {item.title}
+                        </p>
+                        <p className="text-[13px] md:text-[14px] text-[var(--color-text-secondary)] mt-1 leading-relaxed">
+                          {item.body}
+                        </p>
+                        <p className="text-[11px] md:text-[12px] text-[var(--color-text-muted)] mt-1.5">
+                          {item.time}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
     </div>
   );

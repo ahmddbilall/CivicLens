@@ -11,9 +11,33 @@ export default function ReportScreen() {
 
   const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const url = URL.createObjectURL(e.target.files[0]);
-      setDraft({ photoUrl: url });
-      router.push("/report/preview");
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          // Resize dimensions by 50%
+          const width = img.width * 0.5;
+          const height = img.height * 0.5;
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Compress quality by 50% as well
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.5);
+            setDraft({ photoUrl: dataUrl });
+            router.push("/report/preview");
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      
+      reader.readAsDataURL(file);
     }
   };
 

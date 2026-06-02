@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { AgentPipeline } from "@/components/features/report/AgentPipeline";
 import { useReportStore } from "@/store/useReportStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/Button";
 
 export default function ProcessingScreen() {
   const router = useRouter();
+  const { user } = useAuthStore();
   const { draft, setDraft } = useReportStore();
   const [isComplete, setIsComplete] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -24,19 +26,19 @@ export default function ProcessingScreen() {
     setIsComplete(true);
     // Populate mock agent data to draft
     setDraft({
-      faultType: "road_damage",
+      faultType: "road_damage", // Selected by AI
       severity: "high",
-      description: "Deep pothole with surface cracking detected",
+      description: draft.description || "Deep pothole with surface cracking detected",
       location: {
         lat: 31.5204,
         lng: 74.3587,
-        address: "Gulberg III",
-        city: "Lahore",
+        address: user?.street || "Unknown Street",
+        city: user?.city || "Unknown City",
       },
       authority: {
-        name: "Lahore Development Authority",
-        department: "Roads Dept",
-        email: "roads@lda.gop.pk",
+        name: "WASA",
+        department: "Water and Sanitation Agency",
+        email: "complaints@wasa.gop.pk",
         phone: "+92 42 99262241",
         hours: "9 AM - 5 PM",
       },

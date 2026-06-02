@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, ClipboardList } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCasesStore } from "@/store/useCasesStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { CaseCard } from "@/components/features/cases/CaseCard";
 import { Button } from "@/components/ui/Button";
 
@@ -13,9 +14,12 @@ const TABS = ["All", "Pending", "In Progress", "Resolved"];
 export default function CasesScreen() {
   const router = useRouter();
   const { cases } = useCasesStore();
+  const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState("All");
 
-  const filteredCases = cases.filter((c) => {
+  const myCases = cases.filter(c => c.userId === user?.id);
+
+  const filteredCases = myCases.filter((c) => {
     if (activeTab === "All") return true;
     return c.status.replace("_", " ").toLowerCase() === activeTab.toLowerCase();
   });

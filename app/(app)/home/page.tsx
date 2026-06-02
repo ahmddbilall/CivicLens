@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { Camera, ArrowRight, MapPin } from "lucide-react";
 import { useCasesStore } from "@/store/useCasesStore";
+import { useAuthStore } from "@/store/useAuthStore";
 import { CaseCard } from "@/components/features/cases/CaseCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { Button } from "@/components/ui/Button";
 
 export default function HomeScreen() {
   const { cases } = useCasesStore();
+  const { user } = useAuthStore();
+  const myCases = cases.filter(c => c.userId === user?.id);
 
   const totalReports = cases.length;
   const resolvedCases = cases.filter(c => c.status === "resolved").length;
@@ -40,7 +43,7 @@ export default function HomeScreen() {
         </div>
       </Link>
 
-      {cases.length === 0 ? (
+      {myCases.length === 0 ? (
         <div className="mt-16 flex flex-col items-center px-8 text-center">
           <div className="w-24 h-24 mb-6 text-[var(--color-border)]">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
@@ -85,7 +88,7 @@ export default function HomeScreen() {
               </div>
               
               <div className="flex overflow-x-auto gap-3 pb-2 mt-3 md:mt-4 scrollbar-hide snap-x md:grid md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 md:gap-4 md:overflow-visible md:snap-none">
-                {cases.slice(0, 6).map(report => (
+                {myCases.slice(0, 6).map(report => (
                   <div key={report.id} className="min-w-[280px] md:min-w-0 snap-start">
                     <CaseCard report={report} />
                   </div>
@@ -93,34 +96,33 @@ export default function HomeScreen() {
               </div>
             </div>
 
-            {/* Nearby Activity Strip */}
+            {/* Nearest Offices Strip */}
             <div className="lg:w-[320px] xl:w-[380px] shrink-0 mt-2 lg:mt-0">
               <div className="flex items-center gap-2 mb-3 md:mb-4">
-                <h2 className="font-display font-semibold text-[16px] md:text-[22px]">Near You</h2>
+                <h2 className="font-display font-semibold text-[16px] md:text-[22px]">Nearest Offices</h2>
                 <div className="w-2 h-2 bg-[var(--color-accent)] rounded-full animate-pulse" />
               </div>
 
               <div className="flex flex-col gap-2 md:gap-3">
-                <div className="bg-[var(--color-bg-surface)] rounded-xl md:rounded-2xl p-3 md:p-4 border border-[var(--color-border)] flex gap-3 md:gap-4 items-center transition-colors hover:bg-[var(--color-bg-elevated)] cursor-pointer">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-[#DC262615] rounded-full flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5 md:w-6 md:h-6 text-[#DC2626]" />
+                {[
+                  { name: "WASA HQ Lahore", distance: "2.4 km", status: "Open Now" },
+                  { name: "LDA City Office", distance: "5.1 km", status: "Closes 5PM" },
+                ].map((office, idx) => (
+                  <div key={idx} className="bg-[var(--color-bg-surface)] rounded-xl md:rounded-2xl p-3 md:p-4 border border-[var(--color-border)] flex gap-3 md:gap-4 items-center transition-colors hover:bg-[var(--color-bg-elevated)] cursor-pointer">
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-full flex items-center justify-center shrink-0 bg-[#3B82F615]">
+                      <MapPin className="w-5 h-5 md:w-6 md:h-6 text-[#3B82F6]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm md:text-base text-white font-medium truncate">{office.name}</p>
+                      <p className="text-xs md:text-sm text-[var(--color-text-muted)] mt-0.5">
+                        {office.distance}
+                      </p>
+                    </div>
+                    <span className="text-[10px] md:text-[11px] font-bold uppercase tracking-wider text-[var(--color-success)] bg-[var(--color-success-muted)] px-2 py-1 rounded-sm border border-[var(--color-success)] border-opacity-30">
+                      {office.status}
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm md:text-base text-white font-medium truncate">Main Blvd, Gulberg</p>
-                    <p className="text-xs md:text-sm text-[var(--color-text-muted)]">2 days ago</p>
-                  </div>
-                  <StatusBadge status="in_progress" />
-                </div>
-                <div className="bg-[var(--color-bg-surface)] rounded-xl md:rounded-2xl p-3 md:p-4 border border-[var(--color-border)] flex gap-3 md:gap-4 items-center transition-colors hover:bg-[var(--color-bg-elevated)] cursor-pointer">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-[#10B98115] rounded-full flex items-center justify-center shrink-0">
-                    <MapPin className="w-5 h-5 md:w-6 md:h-6 text-[#10B981]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm md:text-base text-white font-medium truncate">DHA Phase 5</p>
-                    <p className="text-xs md:text-sm text-[var(--color-text-muted)]">1 week ago</p>
-                  </div>
-                  <StatusBadge status="resolved" />
-                </div>
+                ))}
               </div>
             </div>
           </div>

@@ -4,23 +4,27 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user } = useAuthStore();
 
   if (pathname.startsWith("/profile")) {
     return null;
   }
 
   if (pathname === "/home") {
+    const firstName = user?.name ? user.name.split(" ")[0] : "Citizen";
+    const initials = user?.name ? user.name.substring(0, 2).toUpperCase() : "CL";
     return (
       <div className="px-5 pt-4 pb-2 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-bg-elevated rounded-full flex items-center justify-center font-bold text-sm border border-border shadow-(--shadow-card) overflow-hidden">
-            <span className="text-accent">JD</span>
+            <span className="text-accent">{initials}</span>
           </div>
-          <span className="text-base font-medium">Hi, Jane</span>
+          <span className="text-base font-medium">Hi, {firstName}</span>
         </div>
       </div>
     );

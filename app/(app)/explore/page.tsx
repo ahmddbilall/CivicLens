@@ -6,59 +6,10 @@ import { Report } from "@/types";
 import { Search, MapPin, Filter } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
-// Dummy cases for the explore page
-const exploreCases: Report[] = [
-  {
-    id: "CL-9821",
-    photoUrl: "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?auto=format&fit=crop&q=80&w=400",
-    faultType: "garbage",
-    severity: "high",
-    description: "Huge pile of uncollected garbage blocking the sidewalk.",
-    location: { address: "Main Boulevard, Gulberg III", city: "Lahore", lat: 0, lng: 0 },
-    authority: { name: "LWMC", department: "Sanitation", email: "", phone: "", hours: "" },
-    status: "in_progress",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-    followUpAt: "",
-    duplicateCount: 12,
-    emailSent: true,
-    socialPostPublished: true,
-    timeline: []
-  },
-  {
-    id: "CL-9820",
-    photoUrl: "https://images.unsplash.com/photo-1517581177682-a085bb7ffb15?auto=format&fit=crop&q=80&w=400",
-    faultType: "road_damage",
-    severity: "medium",
-    description: "Deep pothole causing traffic slowdowns.",
-    location: { address: "Ferozepur Road", city: "Lahore", lat: 0, lng: 0 },
-    authority: { name: "LDA", department: "Roads", email: "", phone: "", hours: "" },
-    status: "pending",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
-    followUpAt: "",
-    duplicateCount: 5,
-    emailSent: true,
-    socialPostPublished: false,
-    timeline: []
-  },
-  {
-    id: "CL-9819",
-    photoUrl: "https://images.unsplash.com/photo-1513828742140-ccaa28f3eda0?auto=format&fit=crop&q=80&w=400",
-    faultType: "broken_light",
-    severity: "low",
-    description: "Street light has been out for 3 days.",
-    location: { address: "DHA Phase 5", city: "Lahore", lat: 0, lng: 0 },
-    authority: { name: "LESCO", department: "Maintenance", email: "", phone: "", hours: "" },
-    status: "resolved",
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
-    followUpAt: "",
-    duplicateCount: 2,
-    emailSent: true,
-    socialPostPublished: false,
-    timeline: []
-  }
-];
+import { useCasesStore } from "@/store/useCasesStore";
 
 export default function ExploreScreen() {
+  const { cases } = useCasesStore();
   const [activeFilter, setActiveFilter] = useState("all");
 
   return (
@@ -125,17 +76,30 @@ export default function ExploreScreen() {
         </div>
       </div>
 
-      {/* Grid Layout for Desktop, List for Mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {exploreCases
-          .filter(report => {
-            if (activeFilter === "all" || activeFilter === "nearby") return true;
-            return report.status === activeFilter;
-          })
-          .map((report) => (
-            <CaseCard key={report.id} report={report} />
-          ))}
-      </div>
+      {cases.length === 0 ? (
+        <div className="mt-16 flex flex-col items-center px-8 text-center">
+          <div className="w-24 h-24 mb-6 text-[var(--color-border)]">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 10v12M20 10v12M4 10l8-8 8 8M10 22v-6h4v6" />
+            </svg>
+          </div>
+          <h2 className="font-display font-semibold text-[20px] md:text-[24px]">No reports yet.</h2>
+          <p className="font-body text-[14px] md:text-[16px] text-[var(--color-text-secondary)] mt-2 max-w-md">
+            Check back later to discover and track civic issues reported by the community.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cases
+            .filter(report => {
+              if (activeFilter === "all" || activeFilter === "nearby") return true;
+              return report.status === activeFilter;
+            })
+            .map((report) => (
+              <CaseCard key={report.id} report={report} />
+            ))}
+        </div>
+      )}
     </div>
   );
 }

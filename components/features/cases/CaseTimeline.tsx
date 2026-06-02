@@ -9,7 +9,6 @@ export function CaseTimeline({ events, status }: { events: TimelineEvent[], stat
   
   const steps = [
     { type: "filed", label: "Report Filed" },
-    { type: "email_sent", label: "Email Sent to Authority" },
     { type: "follow_up_sent", label: "Awaiting Resolution", pendingLabel: "Awaiting Resolution" },
     { type: "resolved", label: "Marked as Resolved", futureLabel: "Mark as Resolved" }
   ];

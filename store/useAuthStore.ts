@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { signOut } from "next-auth/react";
 import { User } from "@/types";
+import toast from "react-hot-toast";
 
 type AuthIntent = "login" | "signup" | null;
 
@@ -15,7 +17,8 @@ interface AuthState {
   }) => void;
   verifyOtp: (otp: string) => void;
   clearAuthIntent: () => void;
-  updateProfile: (data: Partial<User>) => void;
+  updateProfile: (data: Partial<User>) => Promise<boolean>;
+  fetchUser: () => Promise<void>;
   logout: () => void;
 }
 
@@ -43,12 +46,45 @@ export const useAuthStore = create<AuthState>()(
         })),
       verifyOtp: () => set({ isAuthenticated: true }),
       clearAuthIntent: () => set({ authIntent: null }),
-      updateProfile: (data) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...data } : null,
-        })),
-      logout: () =>
-        set({ user: null, isAuthenticated: false, authIntent: null }),
+      updateProfile: async (data) => {
+        try {
+          const res = await fetch("/api/users/profile", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          });
+          if (res.ok) {
+            const updatedUser = await res.json();
+            set({ user: updatedUser });
+            return true;
+          } else {
+            const err = await res.json();
+            toast.error(err.error || "Failed to update profile");
+            return false;
+          }
+        } catch (error) {
+          console.error("Failed to update profile", error);
+          toast.error("Network error while updating profile");
+          return false;
+        }
+      },
+      fetchUser: async () => {
+        try {
+          const res = await fetch("/api/users/profile");
+          if (res.ok) {
+            const user = await res.json();
+            set({ user, isAuthenticated: true });
+          } else {
+            set({ user: null, isAuthenticated: false });
+          }
+        } catch (error) {
+          console.error("Failed to fetch user", error);
+        }
+      },
+      logout: () => {
+        set({ user: null, isAuthenticated: false, authIntent: null });
+        signOut({ callbackUrl: "/login" });
+      },
     }),
     { name: "auth-storage" },
   ),

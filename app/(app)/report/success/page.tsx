@@ -16,6 +16,7 @@ export default function SuccessScreen() {
   const [caseId] = useState(
     () => "CL-" + Math.floor(1000 + Math.random() * 9000),
   );
+  const [realCaseId, setRealCaseId] = useState<string | null>(null);
 
   useEffect(() => {
     if (draft.photoUrl) {
@@ -57,23 +58,24 @@ export default function SuccessScreen() {
         ],
       };
 
-      if (newReport.emailSent) {
-        newReport.timeline.push({
-          id: (Date.now() + 1).toString(),
-          type: "email_sent",
-          label: "Email Sent to Authority",
-          date: new Date().toISOString(),
-        });
-      }
-
-      addCase(newReport);
+      const submit = async () => {
+        const id = await addCase(newReport);
+        if (id) {
+          setRealCaseId(id);
+        }
+      };
+      submit();
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }
   }, []);
 
   const handleDone = () => {
     resetDraft();
-    router.push(`/cases/${caseId}`);
+    if (realCaseId) {
+      router.push(`/cases/${realCaseId}`);
+    } else {
+      router.push("/cases");
+    }
   };
 
   const handleHome = () => {
@@ -157,9 +159,6 @@ export default function SuccessScreen() {
         transition={{ delay: 0.7 }}
         className="flex gap-2 mt-5 flex-wrap justify-center"
       >
-        <div className="bg-success-muted border border-success border-opacity-30 rounded-full px-3 py-1.5 text-xs text-success">
-          ✓ Email sent
-        </div>
         <div className="bg-success-muted border border-success border-opacity-30 rounded-full px-3 py-1.5 text-xs text-success">
           ✓ Post published
         </div>
