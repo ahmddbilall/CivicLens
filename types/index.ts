@@ -20,7 +20,8 @@ export interface TimelineEvent {
 }
 
 export interface Report {
-  id: string; // CL-XXXX format
+  id: string; // MongoDB document id
+  displayId?: string; // CL-XXXX format
   userId: string;
   photoUrl: string;
   faultType: FaultType;
@@ -38,6 +39,14 @@ export interface Report {
     email: string;
     phone: string;
     hours: string;
+    officeName?: string;
+    officeAddress?: string;
+    officeLocation?: {
+      lat?: number;
+      lng?: number;
+    };
+    distanceKm?: number;
+    sourceUrl?: string;
   };
   status: CaseStatus;
   createdAt: string;

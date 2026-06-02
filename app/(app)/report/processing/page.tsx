@@ -1,12 +1,120 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { AgentPipeline } from "@/components/features/report/AgentPipeline";
 import { useReportStore } from "@/store/useReportStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { Button } from "@/components/ui/Button";
+import { FaultSeverity, FaultType } from "@/types";
+
+type VisionOutput = {
+  faultType: FaultType;
+  severity: FaultSeverity;
+  issueDetected: string;
+  refinedDescription: string;
+  visualEvidence: string[];
+  immediateActions: string[];
+  publicSafetyRisk: string;
+  confidence: number;
+};
+
+type ContextOutput = {
+  lat: number;
+  lng: number;
+  accuracy: number;
+  street: string;
+  area: string;
+  address: string;
+  city: string;
+  displayName: string;
+};
+
+type AuthorityOutput = {
+  authority: {
+    name: string;
+    department: string;
+    email: string;
+    phone: string;
+    hours: string;
+    officeName?: string;
+    officeAddress?: string;
+    officeLocation?: {
+      lat?: number;
+      lng?: number;
+    };
+    distanceKm?: number;
+    sourceUrl?: string;
+  };
+  reasoning: string;
+  sources?: Array<{ title: string; url: string }>;
+};
+
+type CommunicationsOutput = {
+  detailedReport: string;
+  emails?: {
+    polite: string;
+    firm: string;
+    urgent: string;
+  };
+  email: string;
+  socialPost: string;
+  immediateActionPlan: string[];
+};
+
+async function postAgent<T>(body: unknown): Promise<T> {
+  const res = await fetch("/api/ai/report-agent", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "AI agent request failed");
+  }
+
+  return data;
+}
+
+async function reverseGeocode(lat: number, lon: number) {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+  });
+  const res = await fetch(`/api/location/reverse?${params.toString()}`);
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data.error || "Reverse geocoding failed");
+  }
+
+  return data as {
+    street: string;
+    area: string;
+    city: string;
+    state: string;
+    postcode: string;
+    displayName: string;
+  };
+}
+
+function getCurrentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Geolocation is not available in this browser"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    });
+  });
+}
 
 export default function ProcessingScreen() {
   const router = useRouter();
@@ -14,6 +122,10 @@ export default function ProcessingScreen() {
   const { draft, setDraft } = useReportStore();
   const [isComplete, setIsComplete] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const visionRef = useRef<VisionOutput | null>(null);
+  const contextRef = useRef<ContextOutput | null>(null);
+  const authorityRef = useRef<AuthorityOutput | null>(null);
+  const communicationsRef = useRef<CommunicationsOutput | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -22,28 +134,143 @@ export default function ProcessingScreen() {
     }
   }, [draft.photoUrl, router]);
 
-  const handleComplete = () => {
+  const handleComplete = useCallback(() => {
     setIsComplete(true);
-    // Populate mock agent data to draft
+    const vision = visionRef.current;
+    const context = contextRef.current;
+    const authority = authorityRef.current;
+    const communications = communicationsRef.current;
+
     setDraft({
-      faultType: "road_damage", // Selected by AI
-      severity: "high",
-      description: draft.description || "Deep pothole with surface cracking detected",
+      faultType: vision?.faultType || "other",
+      severity: vision?.severity || "medium",
+      description:
+        vision?.refinedDescription ||
+        draft.description ||
+        "Reported civic issue",
       location: {
-        lat: 31.5204,
-        lng: 74.3587,
-        address: user?.street || "Unknown Street",
-        city: user?.city || "Unknown City",
+        lat: context?.lat || 0,
+        lng: context?.lng || 0,
+        address:
+          context?.address ||
+          user?.street ||
+          "Location captured from report context",
+        city: context?.city || user?.city || "Unknown City",
       },
-      authority: {
-        name: "WASA",
-        department: "Water and Sanitation Agency",
-        email: "complaints@wasa.gop.pk",
-        phone: "+92 42 99262241",
-        hours: "9 AM - 5 PM",
+      authority: authority?.authority || {
+        name: "Local Authority",
+        department: "Public Works",
+        email: "",
+        phone: "",
+        hours: "",
+        officeName: "",
+        officeAddress: "",
+        officeLocation: undefined,
+        distanceKm: undefined,
+        sourceUrl: "",
       },
+      aiAnalysis: vision || undefined,
+      generatedOutreach: communications || undefined,
     });
-  };
+  }, [draft.description, setDraft, user?.city, user?.street]);
+
+  const runAgentStep = useCallback(
+    async (stepId: string) => {
+      if (stepId === "vision") {
+        const vision = await postAgent<VisionOutput>({
+          stage: "vision",
+          imageDataUrl: draft.photoUrl,
+          userDescription: draft.description,
+        });
+        visionRef.current = vision;
+        return {
+          result: `${vision.issueDetected} - Severity: ${vision.severity.toUpperCase()}`,
+          detail: vision.publicSafetyRisk,
+        };
+      }
+
+      if (stepId === "context") {
+        const position = await getCurrentPosition();
+        const reverse = await reverseGeocode(
+          position.coords.latitude,
+          position.coords.longitude,
+        );
+        const profileAddress = [user?.street, user?.area]
+          .filter(Boolean)
+          .join(", ");
+        const resolvedAddress =
+          [reverse.street, reverse.area].filter(Boolean).join(", ") ||
+          profileAddress ||
+          reverse.displayName ||
+          "Location captured from device";
+        const context: ContextOutput = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          street: reverse.street || user?.street || "",
+          area: reverse.area || user?.area || "",
+          address: resolvedAddress,
+          city: reverse.city || user?.city || "Unknown City",
+          displayName: reverse.displayName,
+        };
+        contextRef.current = context;
+        return {
+          result: context.address,
+          detail: `${context.city} - accuracy about ${Math.round(context.accuracy)}m`,
+        };
+      }
+
+      if (stepId === "authority") {
+        const authority = await postAgent<AuthorityOutput>({
+          stage: "authority",
+          context: {
+            vision: visionRef.current,
+            location: contextRef.current,
+            userProfile: {
+              city: user?.city,
+              street: user?.street,
+              area: user?.area,
+            },
+          },
+        });
+        authorityRef.current = authority;
+        return {
+          result:
+            authority.authority.officeName ||
+            authority.authority.name ||
+            "Authority selected",
+          detail:
+            authority.authority.officeAddress ||
+            authority.authority.department ||
+            authority.reasoning,
+        };
+      }
+
+      if (stepId === "comms") {
+        const communications = await postAgent<CommunicationsOutput>({
+          stage: "communications",
+          context: {
+            vision: visionRef.current,
+            location: contextRef.current,
+            authority: authorityRef.current,
+            userDescription: draft.description,
+            userName: user?.name,
+          },
+        });
+        communicationsRef.current = communications;
+        return {
+          result: "Detailed report generated",
+          detail: "Email, action plan, and social post ready",
+        };
+      }
+
+      return {
+        result: "Case tracking prepared",
+        detail: "Auto follow-up in 7 days if unresolved",
+      };
+    },
+    [draft.description, draft.photoUrl, user],
+  );
 
   if (!mounted || !draft.photoUrl) return null;
 
@@ -71,7 +298,7 @@ export default function ProcessingScreen() {
       </div>
 
       <div className="w-full">
-        <AgentPipeline onComplete={handleComplete} />
+        <AgentPipeline onComplete={handleComplete} runStep={runAgentStep} />
       </div>
 
       {/* Bottom CTA Slides up */}

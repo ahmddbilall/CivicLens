@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
       const json = r.toJSON();
       json.id = r._id.toString();
       json.userId = r.userId?.toString();
+      json.displayId = r.displayId;
       return json;
     });
     return NextResponse.json(mappedReports);
@@ -56,6 +57,8 @@ export async function POST(req: NextRequest) {
 
     const reportJson = newReport.toJSON();
     reportJson.id = newReport._id.toString();
+    reportJson.userId = newReport.userId?.toString();
+    reportJson.displayId = newReport.displayId;
 
     return NextResponse.json(reportJson, { status: 201 });
   } catch (error: any) {

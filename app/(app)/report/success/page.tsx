@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { useCasesStore } from "@/store/useCasesStore";
 import { useReportStore } from "@/store/useReportStore";
-import { Report } from "@/types";
+import { FaultSeverity, FaultType, Report } from "@/types";
 
 export default function SuccessScreen() {
   const router = useRouter();
@@ -20,12 +20,11 @@ export default function SuccessScreen() {
 
   useEffect(() => {
     if (draft.photoUrl) {
-      const newReport: Report = {
+      const newReport: Partial<Report> = {
         id: caseId,
         photoUrl: draft.photoUrl,
-        faultType:
-          (draft.faultType as import("@/types").FaultType) || "road_damage",
-        severity: (draft.severity as import("@/types").FaultSeverity) || "high",
+        faultType: (draft.faultType as FaultType) || "road_damage",
+        severity: (draft.severity as FaultSeverity) || "high",
         description: draft.description || "Reported issue",
         location: draft.location || {
           lat: 0,

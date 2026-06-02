@@ -39,6 +39,8 @@ export async function PUT(
 
     const reportJson = report.toJSON();
     reportJson.id = report._id.toString();
+    reportJson.userId = report.userId?.toString();
+    reportJson.displayId = report.displayId;
 
     return NextResponse.json(reportJson, { status: 200 });
   } catch (error: any) {

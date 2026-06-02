@@ -16,7 +16,8 @@ export function BottomNav() {
     pathname === "/signup" ||
     pathname === "/verify" ||
     pathname === "/setup" ||
-    pathname.startsWith("/report/")
+    pathname.startsWith("/report/") ||
+    pathname.startsWith("/cases/")
   ) {
     return null;
   }

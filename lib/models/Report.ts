@@ -19,6 +19,14 @@ export interface IReport extends Document {
     email: string;
     phone: string;
     hours: string;
+    officeName?: string;
+    officeAddress?: string;
+    officeLocation?: {
+      lat?: number;
+      lng?: number;
+    };
+    distanceKm?: number;
+    sourceUrl?: string;
   };
   status: string;
   followUpAt?: Date;
@@ -55,6 +63,14 @@ const ReportSchema: Schema = new Schema(
       email: { type: String },
       phone: { type: String },
       hours: { type: String },
+      officeName: { type: String },
+      officeAddress: { type: String },
+      officeLocation: {
+        lat: { type: Number },
+        lng: { type: Number },
+      },
+      distanceKm: { type: Number },
+      sourceUrl: { type: String },
     },
     status: { type: String, default: "pending" },
     followUpAt: { type: Date },

@@ -6,7 +6,42 @@ interface ReportDraft {
   severity?: string;
   description?: string;
   location?: { lat: number; lng: number; address: string; city: string };
-  authority?: { name: string; department: string; email: string; phone: string; hours: string; };
+  authority?: {
+    name: string;
+    department: string;
+    email: string;
+    phone: string;
+    hours: string;
+    officeName?: string;
+    officeAddress?: string;
+    officeLocation?: {
+      lat?: number;
+      lng?: number;
+    };
+    distanceKm?: number;
+    sourceUrl?: string;
+  };
+  aiAnalysis?: {
+    faultType: string;
+    severity: string;
+    issueDetected: string;
+    refinedDescription: string;
+    visualEvidence: string[];
+    immediateActions: string[];
+    publicSafetyRisk: string;
+    confidence: number;
+  };
+  generatedOutreach?: {
+    detailedReport: string;
+    emails?: {
+      polite: string;
+      firm: string;
+      urgent: string;
+    };
+    email: string;
+    socialPost: string;
+    immediateActionPlan: string[];
+  };
   sendEmail?: boolean;
   postSocial?: boolean;
 }

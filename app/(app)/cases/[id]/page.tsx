@@ -31,6 +31,17 @@ export default function CaseDetailScreen() {
     return <div className="p-8 text-center text-[var(--color-text-secondary)]">Case not found</div>;
   }
 
+  const caseLabel = report.displayId || `CL-${report.id.slice(-4).toUpperCase()}`;
+  const caseTitle = `${report.faultType
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")} Report`;
+  const officeMapsQuery =
+    report.authority.officeLocation?.lat && report.authority.officeLocation?.lng
+      ? `${report.authority.officeLocation.lat},${report.authority.officeLocation.lng}`
+      : report.authority.officeAddress || report.authority.name;
+  const officeMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(officeMapsQuery)}`;
+
   const handleResolve = () => {
     resolveCase(report.id);
     setResolveSheetOpen(false);
@@ -44,14 +55,21 @@ export default function CaseDetailScreen() {
   };
 
   return (
-    <div className="flex flex-col min-h-[100dvh] pb-32">
+    <div className="flex flex-col min-h-[100dvh] pb-56 lg:pb-32">
       {/* Custom Top Bar */}
       <div className="px-5 pt-4 pb-3 flex items-center justify-between sticky top-0 bg-[var(--color-bg-base)]/80 backdrop-blur z-30">
         <div className="flex items-center gap-3">
           <button onClick={() => router.back()} className="text-[var(--color-text-secondary)]">
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <span className="font-mono font-medium">{report.id}</span>
+          <div className="min-w-0">
+            <p className="font-display font-semibold text-[15px] leading-tight truncate">
+              {caseTitle}
+            </p>
+            <p className="font-mono text-[11px] text-[var(--color-text-muted)] mt-0.5">
+              #{caseLabel}
+            </p>
+          </div>
         </div>
         <StatusBadge status={report.status} />
       </div>
@@ -107,8 +125,12 @@ export default function CaseDetailScreen() {
               className="w-full p-4 md:p-6 flex justify-between items-center transition-colors hover:bg-[var(--color-bg-elevated)]"
             >
               <div className="text-left">
-                <h3 className="font-display font-semibold text-[15px] md:text-[16px]">{report.authority.name}</h3>
-                <p className="text-[13px] md:text-[14px] text-[var(--color-text-secondary)] mt-1">{report.authority.department}</p>
+                <h3 className="font-display font-semibold text-[15px] md:text-[16px]">
+                  {report.authority.officeName || report.authority.name}
+                </h3>
+                <p className="text-[13px] md:text-[14px] text-[var(--color-text-secondary)] mt-1">
+                  {report.authority.department || report.authority.name}
+                </p>
               </div>
               {authorityOpen ? <ChevronUp className="w-5 h-5 md:w-6 md:h-6 text-[var(--color-text-muted)]" /> : <ChevronDown className="w-5 h-5 md:w-6 md:h-6 text-[var(--color-text-muted)]" />}
             </button>
@@ -122,12 +144,43 @@ export default function CaseDetailScreen() {
                   className="px-4 md:px-6 pb-4 md:pb-6 border-t border-[var(--color-border)]"
                 >
                   <div className="pt-4 flex flex-col gap-3">
-                    <p className="font-mono text-[13px] md:text-[14px] text-[var(--color-accent)]">{report.authority.email}</p>
-                    <p className="text-[13px] md:text-[14px] text-[var(--color-text-secondary)]">{report.authority.phone}</p>
-                    <p className="text-[12px] md:text-[13px] text-[var(--color-text-muted)]">Hours: {report.authority.hours}</p>
-                    <button className="text-[13px] md:text-[14px] text-[var(--color-accent)] font-medium mt-2 inline-flex self-start hover:underline">
+                    {report.authority.officeAddress && (
+                      <p className="text-[13px] md:text-[14px] text-white leading-relaxed">
+                        {report.authority.officeAddress}
+                      </p>
+                    )}
+                    {report.authority.distanceKm !== undefined && (
+                      <p className="text-[12px] md:text-[13px] text-[var(--color-text-muted)]">
+                        Nearest office: about {report.authority.distanceKm} km away
+                      </p>
+                    )}
+                    <p className="font-mono text-[13px] md:text-[14px] text-[var(--color-accent)]">
+                      {report.authority.email || "Email not found"}
+                    </p>
+                    <p className="text-[13px] md:text-[14px] text-[var(--color-text-secondary)]">
+                      {report.authority.phone || "Phone not found"}
+                    </p>
+                    <p className="text-[12px] md:text-[13px] text-[var(--color-text-muted)]">
+                      Hours: {report.authority.hours || "Not listed"}
+                    </p>
+                    {report.authority.sourceUrl && (
+                      <a
+                        href={report.authority.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[12px] md:text-[13px] text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+                      >
+                        Source
+                      </a>
+                    )}
+                    <a
+                      href={officeMapsUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[13px] md:text-[14px] text-[var(--color-accent)] font-medium mt-2 inline-flex self-start hover:underline"
+                    >
                       Get Directions &rarr;
-                    </button>
+                    </a>
                   </div>
                 </motion.div>
               )}
@@ -162,7 +215,7 @@ export default function CaseDetailScreen() {
   </div>
 
   {/* Fixed Bottom CTA for Mobile */}
-  <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-[var(--color-bg-base)]/95 backdrop-blur border-t border-[var(--color-border)] px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-40">
+  <div className="lg:hidden fixed bottom-0 left-0 right-0 max-h-[45vh] overflow-y-auto bg-[var(--color-bg-base)]/95 backdrop-blur border-t border-[var(--color-border)] px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-40">
     {isOwner ? (
       <>
         {report.status !== "resolved" ? (

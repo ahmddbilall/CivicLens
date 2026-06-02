@@ -4,6 +4,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatDistanceToNow } from "date-fns";
 
 export function CaseCard({ report }: { report: Report }) {
+  const caseLabel = report.displayId || `CL-${report.id.slice(-4).toUpperCase()}`;
+
   const getFaultBadgeColor = (type: string) => {
     switch (type) {
       case "road_damage":
@@ -63,7 +65,7 @@ export function CaseCard({ report }: { report: Report }) {
 
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2 min-w-0">
           <span className="font-mono text-[13px] md:text-sm text-text-muted">
-            #{report.id}
+            #{caseLabel}
           </span>
           <span className="text-border hidden sm:inline">•</span>
           <span className="text-[13px] md:text-sm text-text-muted wrap-break-word">
