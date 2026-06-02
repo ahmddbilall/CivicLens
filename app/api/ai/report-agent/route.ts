@@ -144,6 +144,91 @@ function normalizeAuthorityResponse(input: any, context: any) {
   };
 }
 
+function buildFallbackVision(userDescription: string) {
+  const description = readString(userDescription);
+
+  return {
+    faultType: "other",
+    severity: "medium",
+    issueDetected: "Civic issue reported",
+    refinedDescription:
+      description ||
+      "A civic fault was reported by the citizen, but the uploaded image could not be confidently analyzed.",
+    visualEvidence: [
+      "Uploaded photo was provided as evidence",
+      "Image quality or model response limited automated visual classification",
+    ],
+    immediateActions: [
+      "Inspect the reported location",
+      "Verify the fault type and public safety risk",
+      "Assign the complaint to the relevant field team",
+    ],
+    publicSafetyRisk:
+      "Potential public inconvenience or safety risk until the issue is inspected by the relevant authority.",
+    confidence: 0.25,
+  };
+}
+
+function buildFallbackCommunications(context: any) {
+  const vision = context?.vision || {};
+  const location = context?.location || {};
+  const authority = context?.authority?.authority || context?.authority || {};
+  const issue = readString(vision.issueDetected) || "Civic issue reported";
+  const userDescription = readString(context?.userDescription);
+  const refinedDescription =
+    readString(vision.refinedDescription) ||
+    userDescription ||
+    "A civic issue has been reported by the citizen.";
+  const address =
+    [readString(location.address), readString(location.city)]
+      .filter(Boolean)
+      .join(", ") || "the reported location";
+  const authorityName = readString(authority.name) || "Local Authority";
+  const officeName = readString(authority.officeName) || authorityName;
+  const officeAddress = readString(authority.officeAddress) || address;
+  const actions =
+    Array.isArray(vision.immediateActions) && vision.immediateActions.length > 0
+      ? vision.immediateActions.map(readString).filter(Boolean)
+      : [
+          "Inspect the reported location",
+          "Verify the public safety risk",
+          "Assign the issue to the relevant field team",
+        ];
+  const detailedReport = [
+    `Civic Complaint Report: ${issue}`,
+    `Issue Detected: ${issue}`,
+    `User's Original Description: ${userDescription || "Not provided"}`,
+    `AI-Refined Description: ${refinedDescription}`,
+    `Location Context: ${address}`,
+    `Public Safety Risk: ${readString(vision.publicSafetyRisk) || "Requires inspection by the relevant authority."}`,
+    `Authority Contact: ${authorityName}`,
+    `Nearest Office: ${officeName}, ${officeAddress}`,
+    `Office Timings: ${readString(authority.hours) || "Standard public office hours"}`,
+    `Email: ${readString(authority.email) || "Not found"}`,
+    `Phone: ${readString(authority.phone) || "Local municipal helpline"}`,
+    `Immediate Action Plan: ${actions.map((action: string, index: number) => `${index + 1}. ${action}`).join(" ")}`,
+  ].join("\n\n");
+  const firmEmail = `Subject: Civic Complaint: ${issue}\n\nDear ${authorityName},\n\nI am formally reporting ${issue} at ${address}.\n\nCitizen description: ${userDescription || "Not provided"}\n\nReport details: ${refinedDescription}\n\nNearest office identified: ${officeName}, ${officeAddress}.\n\nPlease inspect this issue, assign the relevant field team, and share a clear timeline for resolution.\n\nRegards,\n${readString(context?.userName) || "CivicLens User"}`;
+
+  return {
+    detailedReport,
+    emails: {
+      polite: firmEmail.replace(
+        "I am formally reporting",
+        "I would like to respectfully bring attention to",
+      ),
+      firm: firmEmail,
+      urgent: firmEmail.replace(
+        "Please inspect this issue",
+        "Please inspect this issue urgently",
+      ),
+    },
+    email: firmEmail,
+    socialPost: `${issue} reported at ${address}. Requesting ${authorityName} to inspect and resolve it. #CivicLens`,
+    immediateActionPlan: actions,
+  };
+}
+
 async function callGemini(parts: GeminiPart[], useGoogleSearch = false) {
   const apiKeys = getGeminiApiKeys();
 
@@ -320,12 +405,22 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     if (body.stage === "vision") {
-      const { mimeType, data } = extractDataUrl(body.imageDataUrl || "");
-      const result = await callGemini([
-        { inline_data: { mime_type: mimeType, data } },
-        { text: buildVisionPrompt(body.userDescription || "") },
-      ]);
-      return NextResponse.json(result.json);
+      try {
+        const { mimeType, data } = extractDataUrl(body.imageDataUrl || "");
+        const result = await callGemini([
+          { inline_data: { mime_type: mimeType, data } },
+          { text: buildVisionPrompt(body.userDescription || "") },
+        ]);
+        return NextResponse.json(result.json);
+      } catch (error) {
+        return NextResponse.json({
+          ...buildFallbackVision(body.userDescription || ""),
+          warning:
+            error instanceof Error
+              ? `Vision analysis used fallback: ${error.message}`
+              : "Vision analysis used fallback",
+        });
+      }
     }
 
     if (body.stage === "authority") {
@@ -351,11 +446,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.stage === "communications") {
-      const result = await callGemini([
-        { text: buildCommunicationsPrompt(body.context) },
-      ]);
-      const email = result.json.email || result.json.emails?.firm || "";
-      return NextResponse.json({ ...result.json, email });
+      try {
+        const result = await callGemini([
+          { text: buildCommunicationsPrompt(body.context) },
+        ]);
+        const email = result.json.email || result.json.emails?.firm || "";
+        return NextResponse.json({ ...result.json, email });
+      } catch (error) {
+        return NextResponse.json({
+          ...buildFallbackCommunications(body.context),
+          warning:
+            error instanceof Error
+              ? `Communications used fallback: ${error.message}`
+              : "Communications used fallback",
+        });
+      }
     }
 
     return NextResponse.json({ error: "Unknown agent stage" }, { status: 400 });

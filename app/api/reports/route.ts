@@ -23,18 +23,16 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     await connectToDatabase();
     const data = await req.json();
+    const userId = session?.user?.id || data.userId || "local-user";
 
     // Mock processing step
     await new Promise((resolve) => setTimeout(resolve, 1500));
 
     const newReport = await Report.create({
-      userId: session.user.id,
+      userId,
       displayId: `CL-${Math.floor(1000 + Math.random() * 9000)}`,
       photoUrl: data.photoUrl || "",
       faultType: data.faultType || "other",

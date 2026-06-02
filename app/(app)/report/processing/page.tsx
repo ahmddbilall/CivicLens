@@ -190,33 +190,43 @@ export default function ProcessingScreen() {
       }
 
       if (stepId === "context") {
-        const position = await getCurrentPosition();
-        const reverse = await reverseGeocode(
-          position.coords.latitude,
-          position.coords.longitude,
-        );
+        let position: GeolocationPosition | null = null;
+        let reverse: Awaited<ReturnType<typeof reverseGeocode>> | null = null;
+
+        try {
+          position = await getCurrentPosition();
+          reverse = await reverseGeocode(
+            position.coords.latitude,
+            position.coords.longitude,
+          );
+        } catch (error) {
+          reverse = null;
+        }
+
         const profileAddress = [user?.street, user?.area]
           .filter(Boolean)
           .join(", ");
         const resolvedAddress =
-          [reverse.street, reverse.area].filter(Boolean).join(", ") ||
+          [reverse?.street, reverse?.area].filter(Boolean).join(", ") ||
           profileAddress ||
-          reverse.displayName ||
+          reverse?.displayName ||
           "Location captured from device";
         const context: ContextOutput = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-          accuracy: position.coords.accuracy,
-          street: reverse.street || user?.street || "",
-          area: reverse.area || user?.area || "",
+          lat: position?.coords.latitude || 0,
+          lng: position?.coords.longitude || 0,
+          accuracy: position?.coords.accuracy || 0,
+          street: reverse?.street || user?.street || "",
+          area: reverse?.area || user?.area || "",
           address: resolvedAddress,
-          city: reverse.city || user?.city || "Unknown City",
-          displayName: reverse.displayName,
+          city: reverse?.city || user?.city || "Unknown City",
+          displayName: reverse?.displayName || resolvedAddress,
         };
         contextRef.current = context;
         return {
           result: context.address,
-          detail: `${context.city} - accuracy about ${Math.round(context.accuracy)}m`,
+          detail: position
+            ? `${context.city} - accuracy about ${Math.round(context.accuracy)}m`
+            : `${context.city} - using profile/location fallback`,
         };
       }
 

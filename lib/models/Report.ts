@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface IReport extends Document {
-  userId: mongoose.Types.ObjectId | string;
+  userId: string;
   displayId: string; // CL-XXXX format
   photoUrl: string;
   faultType: string;
@@ -45,7 +45,7 @@ export interface IReport extends Document {
 
 const ReportSchema: Schema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User" },
+    userId: { type: String },
     displayId: { type: String, required: true, unique: true },
     photoUrl: { type: String },
     faultType: { type: String },

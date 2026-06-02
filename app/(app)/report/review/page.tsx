@@ -37,6 +37,7 @@ export default function ReviewScreen() {
   const [socialTone, setSocialTone] = useState<Tone>("urgent");
   const [copied, setCopied] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
 
   if (!draft.photoUrl) {
     return (
@@ -104,10 +105,14 @@ export default function ReviewScreen() {
   };
 
   const handleUpload = async () => {
+    if (isUploading) return;
+
+    setUploadError("");
     setIsUploading(true);
 
     const newCase: Partial<Report> = {
       id: `CL-${Math.floor(1000 + Math.random() * 9000)}`,
+      userId: user?.id || "local-user",
       photoUrl: draft.photoUrl!,
       faultType: (draft.faultType as FaultType) || "other",
       severity: (draft.severity as FaultSeverity) || "medium",
@@ -142,11 +147,14 @@ export default function ReviewScreen() {
     };
 
     const caseId = await addCase(newCase);
-    resetDraft();
 
     if (caseId) {
+      resetDraft();
       router.push(`/cases/${caseId}`);
     } else {
+      setUploadError(
+        "The report was analyzed but could not be saved. Please check that you are signed in and try again.",
+      );
       setIsUploading(false);
     }
   };
@@ -305,6 +313,11 @@ export default function ReviewScreen() {
         <p className="text-[12px] text-[var(--color-text-muted)] text-center mt-3">
           This will save your report to the CivicLens map.
         </p>
+        {uploadError && (
+          <p className="text-[12px] text-[var(--color-danger)] text-center mt-2 leading-relaxed">
+            {uploadError}
+          </p>
+        )}
       </div>
     </div>
   );

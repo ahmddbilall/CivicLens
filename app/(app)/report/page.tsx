@@ -2,42 +2,84 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, Image as ImageIcon, Video } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import { useReportStore } from "@/store/useReportStore";
+
+const MAX_IMAGE_SIZE = 1280;
+const JPEG_QUALITY = 0.72;
+
+function normalizeImage(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onerror = () => reject(new Error("Could not read image file"));
+    reader.onload = (event) => {
+      const rawDataUrl = String(event.target?.result || "");
+      const img = new Image();
+
+      img.onerror = () => {
+        if (rawDataUrl.startsWith("data:image/")) {
+          resolve(rawDataUrl);
+          return;
+        }
+
+        reject(new Error("Unsupported image file"));
+      };
+
+      img.onload = () => {
+        const scale = Math.min(
+          1,
+          MAX_IMAGE_SIZE / Math.max(img.width, img.height),
+        );
+        const width = Math.max(1, Math.round(img.width * scale));
+        const height = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(rawDataUrl);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL("image/jpeg", JPEG_QUALITY));
+      };
+
+      img.src = rawDataUrl;
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function ReportScreen() {
   const router = useRouter();
   const { setDraft } = useReportStore();
+  const [error, setError] = useState("");
+  const [isReadingImage, setIsReadingImage] = useState(false);
 
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          // Resize dimensions by 50%
-          const width = img.width * 0.5;
-          const height = img.height * 0.5;
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext("2d");
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height);
-            // Compress quality by 50% as well
-            const dataUrl = canvas.toDataURL("image/jpeg", 0.5);
-            setDraft({ photoUrl: dataUrl });
-            router.push("/report/preview");
-          }
-        };
-        img.src = event.target?.result as string;
-      };
-      
-      reader.readAsDataURL(file);
+  const handleCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setError("");
+    setIsReadingImage(true);
+
+    try {
+      const dataUrl = await normalizeImage(file);
+      setDraft({ photoUrl: dataUrl });
+      router.push("/report/preview");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not prepare this image for reporting",
+      );
+    } finally {
+      setIsReadingImage(false);
+      e.target.value = "";
     }
   };
 
@@ -49,10 +91,23 @@ export default function ReportScreen() {
           <div className="w-16 h-16 bg-[var(--color-accent-muted)] rounded-full flex items-center justify-center mb-4 shadow-[var(--color-accent)] shadow-sm">
             <ImageIcon className="w-8 h-8 text-[var(--color-accent)]" />
           </div>
-          <h2 className="font-display font-semibold text-[20px]">Upload Photo</h2>
+          <h2 className="font-display font-semibold text-[20px]">
+            {isReadingImage ? "Preparing Photo..." : "Upload Photo"}
+          </h2>
           <p className="text-[13px] text-[var(--color-text-muted)] mt-1">Choose an image of the fault</p>
-          <input type="file" accept="image/*" className="hidden" onChange={handleCapture} />
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleCapture}
+            disabled={isReadingImage}
+          />
         </label>
+        {error && (
+          <p className="text-[13px] text-[var(--color-danger)] text-center">
+            {error}
+          </p>
+        )}
       </div>
 
       {/* Tip Strip */}
